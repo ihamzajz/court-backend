@@ -83,18 +83,17 @@ app.get("/", (req, res) => {
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Court Booking API</title>
+    <title>Court Booking App</title>
     <style>
       :root {
-        color-scheme: light;
-        --bg: #f5efe4;
-        --panel: rgba(255, 252, 246, 0.88);
-        --text: #16211d;
-        --muted: #58655f;
-        --line: rgba(22, 33, 29, 0.1);
-        --accent: #126a52;
-        --accent-soft: #d7efe5;
-        --shadow: 0 24px 80px rgba(22, 33, 29, 0.12);
+        --bg-top: #0d5b4d;
+        --bg-bottom: #f6efe2;
+        --panel: rgba(255, 255, 255, 0.82);
+        --text: #14231f;
+        --muted: #5d6a65;
+        --line: rgba(20, 35, 31, 0.08);
+        --accent: #178062;
+        --shadow: 0 28px 90px rgba(17, 33, 29, 0.14);
       }
 
       * {
@@ -104,89 +103,82 @@ app.get("/", (req, res) => {
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        font-family: Georgia, "Times New Roman", serif;
         color: var(--text);
         background:
-          radial-gradient(circle at top left, rgba(18, 106, 82, 0.18), transparent 34%),
-          radial-gradient(circle at bottom right, rgba(190, 143, 64, 0.18), transparent 28%),
-          linear-gradient(135deg, #f8f3e9 0%, #f2eadc 52%, #efe7dc 100%);
+          radial-gradient(circle at top left, rgba(255, 255, 255, 0.14), transparent 24%),
+          linear-gradient(180deg, var(--bg-top) 0%, #1a6f5d 32%, var(--bg-bottom) 32%, #efe5d5 100%);
         display: grid;
         place-items: center;
         padding: 24px;
       }
 
       .shell {
-        width: min(960px, 100%);
+        width: min(760px, 100%);
         background: var(--panel);
         border: 1px solid var(--line);
-        border-radius: 28px;
+        border-radius: 32px;
         box-shadow: var(--shadow);
         overflow: hidden;
-        backdrop-filter: blur(14px);
+        backdrop-filter: blur(18px);
       }
 
       .hero {
-        padding: 36px 36px 22px;
+        padding: 44px 30px 28px;
         background:
-          linear-gradient(135deg, rgba(18, 106, 82, 0.96), rgba(10, 50, 56, 0.96)),
+          linear-gradient(135deg, rgba(10, 58, 50, 0.96), rgba(23, 128, 98, 0.92)),
           linear-gradient(45deg, rgba(255, 255, 255, 0.08), transparent);
         color: #f8fff9;
+        text-align: center;
       }
 
-      .eyebrow {
+      .badge {
         display: inline-flex;
         align-items: center;
-        gap: 10px;
-        padding: 8px 14px;
+        gap: 8px;
+        padding: 8px 16px;
         border-radius: 999px;
-        background: rgba(255, 255, 255, 0.12);
-        font-size: 13px;
+        background: rgba(255, 255, 255, 0.14);
+        font-size: 12px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       }
 
-      .eyebrow::before {
+      .badge::before {
         content: "";
         width: 10px;
         height: 10px;
         border-radius: 50%;
-        background: #71f2bb;
-        box-shadow: 0 0 0 6px rgba(113, 242, 187, 0.15);
+        background: #7cf0bd;
+        box-shadow: 0 0 0 6px rgba(124, 240, 189, 0.14);
       }
 
       h1 {
-        margin: 20px 0 10px;
-        font-size: clamp(2.3rem, 5vw, 4.2rem);
-        line-height: 0.95;
-        letter-spacing: -0.04em;
+        margin: 22px 0 8px;
+        font-size: clamp(2.5rem, 6vw, 4.8rem);
+        line-height: 0.92;
+        letter-spacing: -0.05em;
       }
 
       .subtitle {
-        margin: 0;
-        max-width: 660px;
-        font-size: 1.03rem;
-        line-height: 1.7;
-        color: rgba(248, 255, 249, 0.82);
+        margin: 0 auto;
+        max-width: 520px;
+        font-size: 1.05rem;
+        line-height: 1.8;
+        color: rgba(248, 255, 249, 0.88);
       }
 
       .content {
-        display: grid;
-        padding: 24px;
+        padding: 26px;
       }
 
       .card {
-        padding: 22px;
-        border-radius: 22px;
+        padding: 28px;
+        border-radius: 24px;
         border: 1px solid var(--line);
-        background: rgba(255, 255, 255, 0.72);
-      }
-
-      .card h2 {
-        margin: 0 0 14px;
-        font-size: 1rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--muted);
+        background: rgba(255, 255, 255, 0.74);
+        text-align: center;
       }
 
       .status {
@@ -194,39 +186,43 @@ app.get("/", (req, res) => {
         align-items: center;
         gap: 10px;
         font-weight: 700;
-        font-size: 1.1rem;
+        font-size: 1.2rem;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       }
 
       .status::before {
         content: "";
-        width: 12px;
-        height: 12px;
+        width: 13px;
+        height: 13px;
         border-radius: 50%;
-        background: #1aa66f;
-        box-shadow: 0 0 0 7px rgba(26, 166, 111, 0.12);
+        background: #16a36d;
+        box-shadow: 0 0 0 7px rgba(22, 163, 109, 0.12);
       }
 
       .note {
-        margin: 18px 0 0;
-        line-height: 1.7;
+        margin: 16px 0 0;
+        line-height: 1.8;
         color: var(--muted);
+        font-size: 1rem;
       }
 
-      .pill {
-        display: inline-flex;
-        margin-top: 18px;
-        padding: 9px 12px;
-        border-radius: 999px;
-        background: #eef7f2;
+      .mark {
+        width: 76px;
+        height: 76px;
+        margin: 0 auto 18px;
+        border-radius: 24px;
+        background:
+          linear-gradient(135deg, rgba(23, 128, 98, 0.15), rgba(23, 128, 98, 0.28));
+        border: 1px solid rgba(23, 128, 98, 0.16);
+        display: grid;
+        place-items: center;
+        font-size: 2rem;
         color: var(--accent);
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
       }
 
       @media (max-width: 760px) {
         .hero {
-          padding: 28px 22px 18px;
+          padding: 34px 22px 22px;
         }
 
         .content {
@@ -234,7 +230,7 @@ app.get("/", (req, res) => {
         }
 
         .card {
-          padding: 18px;
+          padding: 22px;
         }
       }
     </style>
@@ -242,21 +238,16 @@ app.get("/", (req, res) => {
   <body>
     <main class="shell">
       <section class="hero">
-        <span class="eyebrow">API Online</span>
-        <h1>Court Booking API</h1>
-        <p class="subtitle">
-          Production backend for court scheduling, event bookings, authentication, and website content management.
-        </p>
+        <span class="badge">System Active</span>
+        <h1>Court Booking App</h1>
+        <p class="subtitle">A calm, simple home for your live application service.</p>
       </section>
 
       <section class="content">
         <article class="card">
-          <h2>Service Status</h2>
-          <div class="status">Backend is running</div>
-          <p class="note">
-            The production API service is online and ready to handle application requests.
-          </p>
-          <span class="pill">${process.env.NODE_ENV || "development"} mode</span>
+          <div class="mark">✓</div>
+          <div class="status">Court Booking App Working</div>
+          <p class="note">Everything is running smoothly.</p>
         </article>
       </section>
     </main>
