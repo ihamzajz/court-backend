@@ -34,10 +34,6 @@ const validateEnv = () => {
     throw new Error("JWT_SECRET must be at least 32 characters for production-safe signing");
   }
 
-  if (isProduction && !getSupportEmail()) {
-    throw new Error("SUPPORT_EMAIL must be set in production");
-  }
-
   if (isProduction && getAllowedOrigins().length === 0) {
     throw new Error("CORS_ORIGIN must be set in production");
   }
