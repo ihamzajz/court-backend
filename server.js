@@ -83,6 +83,17 @@ app.get("/", (req, res) => {
 
 app.get("/health", async (_req, res) => {
   try {
+    if (startupDbError) {
+      return res.status(503).json({
+        ok: false,
+        service: "court-booking-api",
+        environment: process.env.NODE_ENV || "development",
+        startup: "database_init_failed",
+        error: startupDbError.message,
+        timestamp: new Date().toISOString(),
+      });
+    }
+
     await pool.query("SELECT 1");
     return res.json({
       ok: true,
@@ -124,6 +135,7 @@ const PORT = process.env.PORT || 5000;
 initSocketServer(server, Server);
 
 let isShuttingDown = false;
+let startupDbError = null;
 
 const shutdown = async (signal) => {
   if (isShuttingDown) return;
@@ -150,11 +162,12 @@ const shutdown = async (signal) => {
 const startServer = async () => {
   try {
     await ensureAuthTables();
-    server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
   } catch (error) {
-    console.error("Failed to initialize server", error);
-    process.exit(1);
+    startupDbError = error;
+    console.error("Database initialization failed during startup", error);
   }
+
+  server.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 };
 
 startServer();
