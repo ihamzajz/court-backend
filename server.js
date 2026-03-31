@@ -84,6 +84,12 @@ app.get("/", (req, res) => {
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Court Booking App</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
     <style>
       :root {
         --bg-top: #0d5b4d;
@@ -103,7 +109,7 @@ app.get("/", (req, res) => {
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: Georgia, "Times New Roman", serif;
+        font-family: "Poppins", "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
         color: var(--text);
         background:
           radial-gradient(circle at top left, rgba(255, 255, 255, 0.14), transparent 24%),
@@ -142,7 +148,6 @@ app.get("/", (req, res) => {
         font-size: 12px;
         letter-spacing: 0.08em;
         text-transform: uppercase;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       }
 
       .badge::before {
@@ -187,7 +192,6 @@ app.get("/", (req, res) => {
         gap: 10px;
         font-weight: 700;
         font-size: 1.2rem;
-        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
       }
 
       .status::before {
@@ -240,14 +244,12 @@ app.get("/", (req, res) => {
       <section class="hero">
         <span class="badge">System Active</span>
         <h1>Court Booking App</h1>
-        <p class="subtitle">A calm, simple home for your live application service.</p>
       </section>
 
       <section class="content">
         <article class="card">
           <div class="mark">✓</div>
           <div class="status">Court Booking App Working</div>
-          <p class="note">Everything is running smoothly.</p>
         </article>
       </section>
     </main>
