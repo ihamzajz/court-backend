@@ -78,8 +78,6 @@ app.use("/api/faqs", require("./routes/faqRoutes"));
 app.use("/api/news", require("./routes/newsRoutes"));
 
 app.get("/", (req, res) => {
-  const healthUrl = `${req.protocol}://${req.get("host")}/health`;
-
   res.type("html").send(`<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -173,8 +171,6 @@ app.get("/", (req, res) => {
 
       .content {
         display: grid;
-        grid-template-columns: 1.1fr 0.9fr;
-        gap: 18px;
         padding: 24px;
       }
 
@@ -210,91 +206,16 @@ app.get("/", (req, res) => {
         box-shadow: 0 0 0 7px rgba(26, 166, 111, 0.12);
       }
 
-      .meta {
-        display: grid;
-        gap: 12px;
-        margin-top: 18px;
-      }
-
-      .meta-row {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        padding-bottom: 12px;
-        border-bottom: 1px solid var(--line);
-      }
-
-      .meta-row:last-child {
-        padding-bottom: 0;
-        border-bottom: 0;
-      }
-
-      .label {
+      .note {
+        margin: 18px 0 0;
+        line-height: 1.7;
         color: var(--muted);
       }
 
-      .value {
-        text-align: right;
-        font-weight: 600;
-        word-break: break-word;
-      }
-
-      .actions {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 12px;
-        margin-top: 18px;
-      }
-
-      .btn {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 12px 16px;
-        border-radius: 14px;
-        text-decoration: none;
-        font-weight: 700;
-        transition: transform 160ms ease, box-shadow 160ms ease;
-      }
-
-      .btn:hover {
-        transform: translateY(-1px);
-      }
-
-      .btn-primary {
-        background: var(--accent);
-        color: #f7fffb;
-        box-shadow: 0 10px 24px rgba(18, 106, 82, 0.18);
-      }
-
-      .btn-secondary {
-        background: var(--accent-soft);
-        color: var(--accent);
-      }
-
-      .routes {
-        display: grid;
-        gap: 12px;
-      }
-
-      .route {
-        display: flex;
-        justify-content: space-between;
-        gap: 16px;
-        align-items: center;
-        padding: 14px 16px;
-        border-radius: 16px;
-        background: #fffdfa;
-        border: 1px solid var(--line);
-      }
-
-      .route code {
-        font-size: 0.95rem;
-        color: var(--text);
-      }
-
       .pill {
-        padding: 7px 10px;
+        display: inline-flex;
+        margin-top: 18px;
+        padding: 9px 12px;
         border-radius: 999px;
         background: #eef7f2;
         color: var(--accent);
@@ -309,22 +230,11 @@ app.get("/", (req, res) => {
         }
 
         .content {
-          grid-template-columns: 1fr;
           padding: 16px;
         }
 
         .card {
           padding: 18px;
-        }
-
-        .meta-row,
-        .route {
-          flex-direction: column;
-          align-items: flex-start;
-        }
-
-        .value {
-          text-align: left;
         }
       }
     </style>
@@ -343,48 +253,10 @@ app.get("/", (req, res) => {
         <article class="card">
           <h2>Service Status</h2>
           <div class="status">Backend is running</div>
-
-          <div class="meta">
-            <div class="meta-row">
-              <span class="label">Environment</span>
-              <span class="value">${process.env.NODE_ENV || "development"}</span>
-            </div>
-            <div class="meta-row">
-              <span class="label">Host</span>
-              <span class="value">${req.get("host")}</span>
-            </div>
-            <div class="meta-row">
-              <span class="label">Health Check</span>
-              <span class="value">${healthUrl}</span>
-            </div>
-          </div>
-
-          <div class="actions">
-            <a class="btn btn-primary" href="${healthUrl}">Open Health Check</a>
-            <a class="btn btn-secondary" href="/api/courts">Sample API Route</a>
-          </div>
-        </article>
-
-        <article class="card">
-          <h2>Available Endpoints</h2>
-          <div class="routes">
-            <div class="route">
-              <code>/health</code>
-              <span class="pill">Service Monitor</span>
-            </div>
-            <div class="route">
-              <code>/api/auth</code>
-              <span class="pill">Authentication</span>
-            </div>
-            <div class="route">
-              <code>/api/bookings</code>
-              <span class="pill">Bookings</span>
-            </div>
-            <div class="route">
-              <code>/api/courts</code>
-              <span class="pill">Courts</span>
-            </div>
-          </div>
+          <p class="note">
+            The production API service is online and ready to handle application requests.
+          </p>
+          <span class="pill">${process.env.NODE_ENV || "development"} mode</span>
         </article>
       </section>
     </main>
