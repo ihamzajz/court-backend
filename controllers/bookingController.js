@@ -5,7 +5,6 @@ const { withNamedLock } = require("../utils/locking");
 
 const BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];
 const PAYMENT_STATUSES = ["UNPAID", "PAID"];
-const MAX_ACTIVE_BOOKINGS_PER_DAY = 5;
 
 const parseTimeToMinutes = (value) => {
   const parts = String(value || "").split(":");
@@ -57,26 +56,16 @@ const hasConflict = async (connection, courtId, bookingDate, startTime, endTime)
      WHERE court_id = ?
        AND booking_date = ?
        AND booking_status NOT IN ('CANCELLED','REJECTED')
-       AND start_time < ?
-       AND end_time > ?
+       AND (
+            (start_time < ? AND end_time > ?)
+         OR (start_time < ? AND end_time > ?)
+         OR (start_time >= ? AND end_time <= ?)
+       )
      LIMIT 1`,
-    [courtId, bookingDate, endTime, startTime]
+    [courtId, bookingDate, endTime, endTime, startTime, startTime, startTime, endTime]
   );
 
   return rows.length > 0;
-};
-
-const getActiveBookingsForUserOnDate = async (connection, userId, bookingDate) => {
-  const [rows] = await connection.query(
-    `SELECT COUNT(*) AS total
-     FROM bookings
-     WHERE user_id = ?
-       AND booking_date = ?
-       AND booking_status NOT IN ('CANCELLED','REJECTED')`,
-    [userId, bookingDate]
-  );
-
-  return Number(rows[0]?.total || 0);
 };
 
 exports.createBooking = async (req, res) => {
@@ -164,18 +153,6 @@ exports.createBooking = async (req, res) => {
             throw error;
           }
 
-          const activeBookingsForDay = await getActiveBookingsForUserOnDate(
-            connection,
-            userId,
-            bookingDate
-          );
-
-          if (activeBookingsForDay >= MAX_ACTIVE_BOOKINGS_PER_DAY) {
-            const error = new Error("You can only create 5 active court bookings per day");
-            error.statusCode = 400;
-            throw error;
-          }
-
           const conflict = await hasConflict(connection, courtId, bookingDate, startTime, endTime);
           if (conflict) {
             const error = new Error("Time slot not available");
@@ -253,7 +230,7 @@ exports.cancelBooking = async (req, res) => {
     const userId = req.user.id;
 
     const [rows] = await pool.query(
-      `SELECT user_id, court_id, booking_date FROM bookings WHERE id = ?`,
+      `SELECT user_id FROM bookings WHERE id = ?`,
       [bookingId]
     );
 
@@ -270,12 +247,7 @@ exports.cancelBooking = async (req, res) => {
       [bookingId]
     );
 
-    emitRealtime("bookings:updated", {
-      action: "cancelled",
-      id: Number(bookingId),
-      courtId: Number(rows[0].court_id),
-      bookingDate: rows[0].booking_date,
-    });
+    emitRealtime("bookings:updated", { action: "cancelled", id: Number(bookingId) });
     res.json({ message: "Booking cancelled" });
   } catch (err) {
     console.error(err);
@@ -311,13 +283,7 @@ exports.adminUpdateStatus = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    emitRealtime("bookings:updated", {
-      action: "status-updated",
-      id: Number(bookingId),
-      courtId: Number(booking[0].court_id),
-      bookingDate: booking[0].booking_date,
-      bookingStatus: booking[0].booking_status,
-    });
+    emitRealtime("bookings:updated", { action: "status-updated", id: Number(bookingId) });
     res.json(booking[0]);
   } catch (err) {
     console.error(err);
