@@ -1,15 +1,11 @@
 const fs = require("fs");
-const path = require("path");
 
 const pool = require("../config/db");
 const { getUploadSubdirPath } = require("../config/uploads");
 const { emitRealtime } = require("../socket");
+const { deleteFileIfExists, getStoredFilename } = require("../utils/uploadFiles");
 
 const slidesDir = getUploadSubdirPath("slides");
-const getPictureFilename = (pictureValue) => {
-  if (!pictureValue) return null;
-  return path.basename(pictureValue);
-};
 
 const normalizeSortOrder = (value, fallback = 0) => {
   const parsed = Number.parseInt(value, 10);
@@ -42,6 +38,9 @@ exports.getPublicSlides = async (_req, res) => {
 
     res.json(slides);
   } catch (error) {
+    if (req.file) {
+      deleteFileIfExists(slidesDir, req.file.filename);
+    }
     console.error(error);
     res.status(500).json({ message: "Failed to fetch slides" });
   }
@@ -115,17 +114,10 @@ exports.updateSlide = async (req, res) => {
     }
 
     const slide = rows[0];
-    const oldPictureFilename = getPictureFilename(slide.picture);
+    const oldPictureFilename = getStoredFilename(slide.picture);
     const nextPicture = req.file
       ? req.file.filename
       : slide.picture;
-
-    if (req.file && oldPictureFilename) {
-      const oldPath = path.join(slidesDir, oldPictureFilename);
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
-    }
 
     await pool.query(
       `UPDATE slides
@@ -146,9 +138,15 @@ exports.updateSlide = async (req, res) => {
     );
 
     const [updated] = await pool.query("SELECT * FROM slides WHERE id = ?", [req.params.id]);
+    if (req.file && oldPictureFilename) {
+      deleteFileIfExists(slidesDir, oldPictureFilename);
+    }
     emitRealtime("slides:updated", { action: "updated", id: Number(req.params.id) });
     res.json(updated[0]);
   } catch (error) {
+    if (req.file) {
+      deleteFileIfExists(slidesDir, req.file.filename);
+    }
     console.error(error);
     res.status(500).json({ message: "Failed to update slide" });
   }
@@ -162,12 +160,9 @@ exports.deleteSlide = async (req, res) => {
     }
 
     const slide = rows[0];
-    const pictureFilename = getPictureFilename(slide.picture);
+    const pictureFilename = getStoredFilename(slide.picture);
     if (pictureFilename) {
-      const filePath = path.join(slidesDir, pictureFilename);
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      deleteFileIfExists(slidesDir, pictureFilename);
     }
 
     await pool.query("DELETE FROM slides WHERE id = ?", [req.params.id]);

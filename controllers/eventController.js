@@ -1,15 +1,17 @@
 const pool = require("../config/db");
-const fs = require("fs");
-const path = require("path");
 const { getUploadSubdirPath } = require("../config/uploads");
 const { emitRealtime } = require("../socket");
 const { isDuplicateEntryError } = require("../utils/dbErrors");
+const { deleteFileIfExists } = require("../utils/uploadFiles");
 
 exports.createEvent = async (req, res) => {
   try {
     const { name } = req.body;
 
     if (!name) {
+      if (req.file) {
+        deleteFileIfExists(getUploadSubdirPath("events"), req.file.filename);
+      }
       return res.status(400).json({ message: "Venue name required" });
     }
 
@@ -21,6 +23,9 @@ exports.createEvent = async (req, res) => {
     );
 
     if (existing.length > 0) {
+      if (req.file) {
+        deleteFileIfExists(getUploadSubdirPath("events"), req.file.filename);
+      }
       return res.status(400).json({ message: "Venue already exists" });
     }
 
@@ -39,6 +44,9 @@ exports.createEvent = async (req, res) => {
     emitRealtime("events:updated", { action: "created", id: result.insertId });
     res.status(201).json(event[0]);
   } catch (err) {
+    if (req.file) {
+      deleteFileIfExists(getUploadSubdirPath("events"), req.file.filename);
+    }
     console.error(err);
     if (isDuplicateEntryError(err)) {
       return res.status(409).json({ message: "Venue already exists" });
@@ -91,21 +99,15 @@ exports.updateEvent = async (req, res) => {
     );
 
     if (events.length === 0) {
+      if (req.file) {
+        deleteFileIfExists(getUploadSubdirPath("events"), req.file.filename);
+      }
       return res.status(404).json({ message: "Venue not found" });
     }
 
     const event = events[0];
 
-    if (req.file && event.picture) {
-      const oldPath = path.join(
-        getUploadSubdirPath("events"),
-        event.picture
-      );
-
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
-    }
+    const previousPicture = event.picture;
 
     const nextName = name?.trim() || event.name;
     const nextPicture = req.file ? req.file.filename : event.picture;
@@ -116,6 +118,9 @@ exports.updateEvent = async (req, res) => {
     );
 
     if (duplicate.length > 0) {
+      if (req.file) {
+        deleteFileIfExists(getUploadSubdirPath("events"), req.file.filename);
+      }
       return res.status(400).json({ message: "Venue already exists" });
     }
 
@@ -129,9 +134,16 @@ exports.updateEvent = async (req, res) => {
       [req.params.id]
     );
 
+    if (req.file && previousPicture) {
+      deleteFileIfExists(getUploadSubdirPath("events"), previousPicture);
+    }
+
     emitRealtime("events:updated", { action: "updated", id: Number(req.params.id) });
     res.json(updated[0]);
   } catch (err) {
+    if (req.file) {
+      deleteFileIfExists(getUploadSubdirPath("events"), req.file.filename);
+    }
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
@@ -151,14 +163,7 @@ exports.deleteEvent = async (req, res) => {
     const event = events[0];
 
     if (event.picture) {
-      const filePath = path.join(
-        getUploadSubdirPath("events"),
-        event.picture
-      );
-
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      deleteFileIfExists(getUploadSubdirPath("events"), event.picture);
     }
 
     await pool.query("DELETE FROM events WHERE id = ?", [req.params.id]);

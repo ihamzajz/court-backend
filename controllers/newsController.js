@@ -1,9 +1,7 @@
-const fs = require("fs");
-const path = require("path");
-
 const pool = require("../config/db");
 const { getUploadSubdirPath } = require("../config/uploads");
 const { emitRealtime } = require("../socket");
+const { deleteFileIfExists } = require("../utils/uploadFiles");
 
 const newsDir = getUploadSubdirPath("news");
 
@@ -29,14 +27,7 @@ const getNextSortOrder = async () => {
   return (rows[0]?.maxOrder || 0) + 1;
 };
 
-const removePicture = (pictureValue) => {
-  if (!pictureValue) return;
-
-  const filePath = path.join(newsDir, path.basename(pictureValue));
-  if (fs.existsSync(filePath)) {
-    fs.unlinkSync(filePath);
-  }
-};
+const removePicture = (pictureValue) => deleteFileIfExists(newsDir, pictureValue);
 
 exports.getPublicNews = async (_req, res) => {
   try {
@@ -49,6 +40,7 @@ exports.getPublicNews = async (_req, res) => {
 
     res.json(news);
   } catch (error) {
+    if (req.file) removePicture(req.file.filename);
     console.error(error);
     res.status(500).json({ message: "Failed to fetch news" });
   }
@@ -136,11 +128,8 @@ exports.updateNews = async (req, res) => {
     }
 
     const currentNews = rows[0];
+    const previousPicture = currentNews.picture;
     const nextPicture = req.file ? req.file.filename : currentNews.picture;
-
-    if (req.file && currentNews.picture) {
-      removePicture(currentNews.picture);
-    }
 
     await pool.query(
       `UPDATE news
@@ -159,9 +148,13 @@ exports.updateNews = async (req, res) => {
     );
 
     const [updated] = await pool.query("SELECT * FROM news WHERE id = ?", [req.params.id]);
+    if (req.file && previousPicture) {
+      removePicture(previousPicture);
+    }
     emitRealtime("news:updated", { action: "updated", id: Number(req.params.id) });
     res.json(updated[0]);
   } catch (error) {
+    if (req.file) removePicture(req.file.filename);
     console.error(error);
     res.status(500).json({ message: "Failed to update news" });
   }

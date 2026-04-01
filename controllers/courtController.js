@@ -1,9 +1,8 @@
 const pool = require("../config/db");
-const fs = require("fs");
-const path = require("path");
 const { getUploadSubdirPath } = require("../config/uploads");
 const { emitRealtime } = require("../socket");
 const { isDuplicateEntryError } = require("../utils/dbErrors");
+const { deleteFileIfExists } = require("../utils/uploadFiles");
 
 // ===============================
 // CREATE COURT
@@ -13,6 +12,9 @@ exports.createCourt = async (req, res) => {
     const { name } = req.body;
 
     if (!name) {
+      if (req.file) {
+        deleteFileIfExists(getUploadSubdirPath("courts"), req.file.filename);
+      }
       return res.status(400).json({ message: "Court name required" });
     }
 
@@ -23,6 +25,9 @@ exports.createCourt = async (req, res) => {
     );
 
     if (existing.length > 0) {
+      if (req.file) {
+        deleteFileIfExists(getUploadSubdirPath("courts"), req.file.filename);
+      }
       return res.status(400).json({ message: "Court already exists" });
     }
 
@@ -42,6 +47,9 @@ exports.createCourt = async (req, res) => {
     res.status(201).json(court[0]);
 
   } catch (err) {
+    if (req.file) {
+      deleteFileIfExists(getUploadSubdirPath("courts"), req.file.filename);
+    }
     console.error(err);
     if (isDuplicateEntryError(err)) {
       return res.status(409).json({ message: "Court already exists" });
@@ -108,23 +116,15 @@ exports.updateCourt = async (req, res) => {
     );
 
     if (courts.length === 0) {
+      if (req.file) {
+        deleteFileIfExists(getUploadSubdirPath("courts"), req.file.filename);
+      }
       return res.status(404).json({ message: "Court not found" });
     }
 
     const court = courts[0];
 
-    // delete old picture if new uploaded
-    if (req.file && court.picture) {
-
-      const oldPath = path.join(
-        getUploadSubdirPath("courts"),
-        court.picture
-      );
-
-      if (fs.existsSync(oldPath)) {
-        fs.unlinkSync(oldPath);
-      }
-    }
+    const previousPicture = court.picture;
 
     const newName = name || court.name;
     const newPicture = req.file ? req.file.filename : court.picture;
@@ -139,10 +139,17 @@ exports.updateCourt = async (req, res) => {
       [req.params.id]
     );
 
+    if (req.file && previousPicture) {
+      deleteFileIfExists(getUploadSubdirPath("courts"), previousPicture);
+    }
+
     emitRealtime("courts:updated", { action: "updated", id: Number(req.params.id) });
     res.json(updated[0]);
 
   } catch (err) {
+    if (req.file) {
+      deleteFileIfExists(getUploadSubdirPath("courts"), req.file.filename);
+    }
     console.error(err);
     res.status(500).json({ message: "Server error" });
   }
@@ -168,14 +175,7 @@ exports.deleteCourt = async (req, res) => {
     // delete picture file
     if (court.picture) {
 
-      const filePath = path.join(
-        getUploadSubdirPath("courts"),
-        court.picture
-      );
-
-      if (fs.existsSync(filePath)) {
-        fs.unlinkSync(filePath);
-      }
+      deleteFileIfExists(getUploadSubdirPath("courts"), court.picture);
     }
 
     await pool.query(
