@@ -1,6 +1,10 @@
 const pool = require("../config/db");
 const { emitRealtime } = require("../socket");
 const { withNamedLock } = require("../utils/locking");
+const {
+  MAX_DAILY_ACTIVE_BOOKINGS,
+  countUserActiveBookingsForDate,
+} = require("../utils/bookingLimits");
 
 const BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];
 const PAYMENT_STATUSES = ["UNPAID", "PAID"];
@@ -119,6 +123,20 @@ exports.createEventBooking = async (req, res) => {
             throw error;
           }
 
+          const activeBookingsCount = await countUserActiveBookingsForDate(
+            connection,
+            userId,
+            bookingDate
+          );
+
+          if (activeBookingsCount >= MAX_DAILY_ACTIVE_BOOKINGS) {
+            const error = new Error(
+              `You can only keep ${MAX_DAILY_ACTIVE_BOOKINGS} active bookings in one day`
+            );
+            error.statusCode = 400;
+            throw error;
+          }
+
           const [result] = await connection.query(
             `INSERT INTO event_bookings
               (user_id, event_id, booking_date, start_time, end_time)
@@ -149,6 +167,7 @@ exports.createEventBooking = async (req, res) => {
       id: booking.id,
       eventId: Number(eventId),
       bookingDate,
+      bookingStatus: booking.booking_status,
     });
     res.status(201).json(booking);
   } catch (err) {
@@ -213,11 +232,6 @@ exports.adminUpdateEventBookingStatus = async (req, res) => {
       return res.status(400).json({ message: "Invalid booking status" });
     }
 
-    await pool.query(
-      `UPDATE event_bookings SET booking_status = ?, admin_note = ? WHERE id = ?`,
-      [normalizedStatus, String(adminNote || "").trim(), bookingId]
-    );
-
     const [booking] = await pool.query(
       `SELECT eb.*, u.name AS user_name, u.email AS user_email, e.name AS event_name
        FROM event_bookings eb
@@ -231,7 +245,21 @@ exports.adminUpdateEventBookingStatus = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    emitRealtime("event-bookings:updated", { action: "status-updated", id: Number(bookingId) });
+    await pool.query(
+      `UPDATE event_bookings SET booking_status = ?, admin_note = ? WHERE id = ?`,
+      [normalizedStatus, String(adminNote || "").trim(), bookingId]
+    );
+
+    booking[0].booking_status = normalizedStatus;
+    booking[0].admin_note = String(adminNote || "").trim();
+
+    emitRealtime("event-bookings:updated", {
+      action: "status-updated",
+      id: Number(bookingId),
+      eventId: Number(booking[0].event_id),
+      bookingDate: booking[0].booking_date,
+      bookingStatus: normalizedStatus,
+    });
     res.json(booking[0]);
   } catch (err) {
     console.error(err);
