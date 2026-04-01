@@ -1,5 +1,5 @@
 const pool = require("../config/db");
-const { getAppName, getPrivacyContactName, getSupportEmail } = require("../config/env");
+const { getAppName, getPrivacyContactName, getSupportEmail, getSupportWhatsapp } = require("../config/env");
 const { disconnectUserSockets, emitRealtime } = require("../socket");
 
 const escapeHtml = (value) =>
@@ -13,6 +13,7 @@ const escapeHtml = (value) =>
 const getPolicyHtml = () => {
   const appName = escapeHtml(getAppName());
   const supportEmail = escapeHtml(getSupportEmail() || "support@example.com");
+  const supportWhatsapp = escapeHtml(getSupportWhatsapp());
   const contactName = escapeHtml(getPrivacyContactName());
 
   return `<!DOCTYPE html>
@@ -23,9 +24,12 @@ const getPolicyHtml = () => {
     <title>${appName} Privacy Policy</title>
     <style>
       body { font-family: Arial, sans-serif; margin: 0; background: #f4f7fb; color: #0f172a; }
-      main { max-width: 860px; margin: 0 auto; padding: 32px 20px 48px; }
-      section { background: #fff; border: 1px solid #dbe5f0; border-radius: 18px; padding: 24px; margin-top: 18px; }
+      main { max-width: 780px; margin: 0 auto; padding: 20px 14px 32px; }
+      section { background: #fff; border: 1px solid #dbe5f0; border-radius: 16px; padding: 18px; margin-top: 14px; }
       h1, h2 { color: #163b7a; }
+      h1 { font-size: 28px; margin: 0 0 8px; }
+      h2 { font-size: 20px; margin: 0 0 10px; }
+      p, li { font-size: 14px; line-height: 1.55; }
       ul { padding-left: 22px; }
       a { color: #1d4ed8; }
       .muted { color: #475569; }
@@ -77,6 +81,7 @@ const getPolicyHtml = () => {
       <section>
         <h2>Contact</h2>
         <p>If you have questions about this policy, contact ${contactName} at <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
+        <p>You can also contact us on WhatsApp at <strong>${supportWhatsapp}</strong>.</p>
       </section>
     </main>
   </body>
@@ -86,6 +91,7 @@ const getPolicyHtml = () => {
 const getDeletionPageHtml = (message = "", isSuccess = false) => {
   const appName = escapeHtml(getAppName());
   const supportEmail = escapeHtml(getSupportEmail() || "support@example.com");
+  const supportWhatsapp = escapeHtml(getSupportWhatsapp());
   const banner = message
     ? `<div style="margin-bottom:16px;padding:14px 16px;border-radius:12px;border:1px solid ${
         isSuccess ? "#a7f3d0" : "#fecaca"
@@ -102,8 +108,10 @@ const getDeletionPageHtml = (message = "", isSuccess = false) => {
     <title>${appName} Account Deletion</title>
     <style>
       body { font-family: Arial, sans-serif; margin: 0; background: #f4f7fb; color: #0f172a; }
-      main { max-width: 720px; margin: 0 auto; padding: 32px 20px 48px; }
-      section { background: #fff; border: 1px solid #dbe5f0; border-radius: 18px; padding: 24px; }
+      main { max-width: 680px; margin: 0 auto; padding: 20px 14px 32px; }
+      section { background: #fff; border: 1px solid #dbe5f0; border-radius: 16px; padding: 18px; }
+      h1 { font-size: 26px; margin: 0 0 10px; }
+      p, label, input, textarea, button { font-size: 14px; }
       label { display: block; margin-bottom: 8px; font-weight: 700; color: #163b7a; }
       input, textarea { width: 100%; box-sizing: border-box; padding: 12px 14px; border-radius: 12px; border: 1px solid #cbd5e1; margin-bottom: 16px; }
       textarea { min-height: 110px; resize: vertical; }
@@ -127,7 +135,7 @@ const getDeletionPageHtml = (message = "", isSuccess = false) => {
 
           <button type="submit">Submit Deletion Request</button>
         </form>
-        <p class="muted" style="margin-top:18px;">If you need help, contact <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
+        <p class="muted" style="margin-top:18px;">If you need help, contact <a href="mailto:${supportEmail}">${supportEmail}</a> or WhatsApp <strong>${supportWhatsapp}</strong>.</p>
       </section>
     </main>
   </body>

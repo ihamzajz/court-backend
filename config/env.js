@@ -13,6 +13,8 @@ const requiredEnvKeys = ["DB_HOST", "DB_USER", "DB_NAME", "JWT_SECRET"];
 
 const getAppName = () => String(process.env.APP_NAME || "BookFlow").trim() || "BookFlow";
 const getSupportEmail = () => String(process.env.SUPPORT_EMAIL || "").trim();
+const getSupportWhatsapp = () =>
+  String(process.env.SUPPORT_WHATSAPP || "0123-1234567").trim() || "0123-1234567";
 const getPrivacyContactName = () =>
   String(process.env.PRIVACY_CONTACT_NAME || getAppName()).trim() || getAppName();
 
@@ -34,6 +36,10 @@ const validateEnv = () => {
     throw new Error("JWT_SECRET must be at least 32 characters for production-safe signing");
   }
 
+  if (isProduction && !getSupportEmail()) {
+    throw new Error("SUPPORT_EMAIL must be set in production");
+  }
+
   if (isProduction && getAllowedOrigins().length === 0) {
     throw new Error("CORS_ORIGIN must be set in production");
   }
@@ -45,6 +51,7 @@ module.exports = {
   getUploadsRoot,
   getPrivacyContactName,
   getSupportEmail,
+  getSupportWhatsapp,
   isProduction,
   validateEnv,
 };

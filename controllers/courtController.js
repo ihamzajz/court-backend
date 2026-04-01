@@ -165,6 +165,17 @@ exports.deleteCourt = async (req, res) => {
 
     const court = courts[0];
 
+    const [bookingRows] = await pool.query(
+      "SELECT COUNT(*) AS total FROM bookings WHERE court_id = ?",
+      [req.params.id]
+    );
+
+    if (Number(bookingRows[0]?.total || 0) > 0) {
+      return res.status(400).json({
+        message: "Court cannot be deleted because it is used in existing bookings",
+      });
+    }
+
     // delete picture file
     if (court.picture) {
 
