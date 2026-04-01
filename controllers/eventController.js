@@ -150,6 +150,17 @@ exports.deleteEvent = async (req, res) => {
 
     const event = events[0];
 
+    const [bookingRows] = await pool.query(
+      "SELECT COUNT(*) AS total FROM event_bookings WHERE event_id = ?",
+      [req.params.id]
+    );
+
+    if (Number(bookingRows[0]?.total || 0) > 0) {
+      return res.status(400).json({
+        message: "Venue cannot be deleted because it is used in existing bookings",
+      });
+    }
+
     if (event.picture) {
       const filePath = path.join(
         getUploadSubdirPath("events"),

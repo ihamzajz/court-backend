@@ -166,14 +166,6 @@ app.get("/", (req, res) => {
         letter-spacing: -0.05em;
       }
 
-      .subtitle {
-        margin: 0 auto;
-        max-width: 520px;
-        font-size: 1.05rem;
-        line-height: 1.8;
-        color: rgba(248, 255, 249, 0.88);
-      }
-
       .content {
         padding: 26px;
       }
@@ -203,20 +195,12 @@ app.get("/", (req, res) => {
         box-shadow: 0 0 0 7px rgba(22, 163, 109, 0.12);
       }
 
-      .note {
-        margin: 16px 0 0;
-        line-height: 1.8;
-        color: var(--muted);
-        font-size: 1rem;
-      }
-
       .mark {
         width: 76px;
         height: 76px;
         margin: 0 auto 18px;
         border-radius: 24px;
-        background:
-          linear-gradient(135deg, rgba(23, 128, 98, 0.15), rgba(23, 128, 98, 0.28));
+        background: linear-gradient(135deg, rgba(23, 128, 98, 0.15), rgba(23, 128, 98, 0.28));
         border: 1px solid rgba(23, 128, 98, 0.16);
         display: grid;
         place-items: center;
@@ -248,7 +232,7 @@ app.get("/", (req, res) => {
 
       <section class="content">
         <article class="card">
-          <div class="mark">✓</div>
+          <div class="mark">&#10003;</div>
           <div class="status">Court Booking App Working</div>
         </article>
       </section>

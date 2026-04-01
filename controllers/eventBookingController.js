@@ -4,6 +4,8 @@ const { withNamedLock } = require("../utils/locking");
 
 const BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];
 const PAYMENT_STATUSES = ["UNPAID", "PAID"];
+const MAX_ACTIVE_EVENT_BOOKINGS_PER_DAY = 5;
+const MAX_EVENT_DURATION_MINUTES = 420;
 
 const parseTimeToMinutes = (value) => {
   const parts = String(value || "").split(":");
@@ -55,16 +57,26 @@ const hasConflict = async (connection, eventId, bookingDate, startTime, endTime)
      WHERE event_id = ?
        AND booking_date = ?
        AND booking_status NOT IN ('CANCELLED','REJECTED')
-       AND (
-            (start_time < ? AND end_time > ?)
-         OR (start_time < ? AND end_time > ?)
-         OR (start_time >= ? AND end_time <= ?)
-       )
+       AND start_time < ?
+       AND end_time > ?
      LIMIT 1`,
-    [eventId, bookingDate, endTime, endTime, startTime, startTime, startTime, endTime]
+    [eventId, bookingDate, endTime, startTime]
   );
 
   return rows.length > 0;
+};
+
+const getActiveEventBookingsForUserOnDate = async (connection, userId, bookingDate) => {
+  const [rows] = await connection.query(
+    `SELECT COUNT(*) AS total
+     FROM event_bookings
+     WHERE user_id = ?
+       AND booking_date = ?
+       AND booking_status NOT IN ('CANCELLED','REJECTED')`,
+    [userId, bookingDate]
+  );
+
+  return Number(rows[0]?.total || 0);
 };
 
 exports.createEventBooking = async (req, res) => {
@@ -80,6 +92,10 @@ exports.createEventBooking = async (req, res) => {
 
   if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
     return res.status(400).json({ message: "Invalid booking time range" });
+  }
+
+  if (endMinutes - startMinutes > MAX_EVENT_DURATION_MINUTES) {
+    return res.status(400).json({ message: "Event booking can be maximum 7 hours" });
   }
 
   if (isPastBookingRequest(bookingDate, startTime)) {
@@ -109,6 +125,18 @@ exports.createEventBooking = async (req, res) => {
           if (!eventRows.length) {
             const error = new Error("Venue not found");
             error.statusCode = 404;
+            throw error;
+          }
+
+          const activeBookingsForDay = await getActiveEventBookingsForUserOnDate(
+            connection,
+            userId,
+            bookingDate
+          );
+
+          if (activeBookingsForDay >= MAX_ACTIVE_EVENT_BOOKINGS_PER_DAY) {
+            const error = new Error("You can only create 5 active event bookings per day");
+            error.statusCode = 400;
             throw error;
           }
 
@@ -231,7 +259,13 @@ exports.adminUpdateEventBookingStatus = async (req, res) => {
       return res.status(404).json({ message: "Booking not found" });
     }
 
-    emitRealtime("event-bookings:updated", { action: "status-updated", id: Number(bookingId) });
+    emitRealtime("event-bookings:updated", {
+      action: "status-updated",
+      id: Number(bookingId),
+      eventId: Number(booking[0].event_id),
+      bookingDate: booking[0].booking_date,
+      bookingStatus: booking[0].booking_status,
+    });
     res.json(booking[0]);
   } catch (err) {
     console.error(err);
