@@ -1,3 +1,4 @@
+const fs = require("fs");
 const path = require("path");
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -19,9 +20,31 @@ const getPrivacyWhatsapp = () => String(process.env.PRIVACY_WHATSAPP || "0123-12
 
 const getAllowedOrigins = () => parseAllowedOrigins(process.env.CORS_ORIGIN);
 
+const getDefaultUploadsRoot = () => path.join(__dirname, "..", "uploads");
+
+let warnedUploadsFallback = false;
+
 const getUploadsRoot = () => {
   const configuredPath = String(process.env.UPLOADS_DIR || "").trim();
-  return configuredPath || path.join(__dirname, "..", "uploads");
+
+  if (!configuredPath) {
+    return getDefaultUploadsRoot();
+  }
+
+  try {
+    fs.mkdirSync(configuredPath, { recursive: true });
+    return configuredPath;
+  } catch (error) {
+    if (!warnedUploadsFallback) {
+      warnedUploadsFallback = true;
+      console.warn(
+        `UPLOADS_DIR "${configuredPath}" is not usable. Falling back to local uploads directory.`,
+        error.message
+      );
+    }
+
+    return getDefaultUploadsRoot();
+  }
 };
 
 const validateEnv = () => {
