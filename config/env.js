@@ -15,6 +15,7 @@ const getAppName = () => String(process.env.APP_NAME || "BookFlow").trim() || "B
 const getSupportEmail = () => String(process.env.SUPPORT_EMAIL || "").trim();
 const getPrivacyContactName = () =>
   String(process.env.PRIVACY_CONTACT_NAME || getAppName()).trim() || getAppName();
+const getPrivacyWhatsapp = () => String(process.env.PRIVACY_WHATSAPP || "0123-1234567").trim();
 
 const getAllowedOrigins = () => parseAllowedOrigins(process.env.CORS_ORIGIN);
 
@@ -44,6 +45,7 @@ module.exports = {
   getAllowedOrigins,
   getUploadsRoot,
   getPrivacyContactName,
+  getPrivacyWhatsapp,
   getSupportEmail,
   isProduction,
   validateEnv,

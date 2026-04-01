@@ -1,5 +1,10 @@
 const pool = require("../config/db");
-const { getAppName, getPrivacyContactName, getSupportEmail } = require("../config/env");
+const {
+  getAppName,
+  getPrivacyContactName,
+  getPrivacyWhatsapp,
+  getSupportEmail,
+} = require("../config/env");
 const { disconnectUserSockets, emitRealtime } = require("../socket");
 
 const escapeHtml = (value) =>
@@ -14,6 +19,7 @@ const getPolicyHtml = () => {
   const appName = escapeHtml(getAppName());
   const supportEmail = escapeHtml(getSupportEmail() || "support@example.com");
   const contactName = escapeHtml(getPrivacyContactName());
+  const whatsappNumber = escapeHtml(getPrivacyWhatsapp());
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -23,12 +29,22 @@ const getPolicyHtml = () => {
     <title>${appName} Privacy Policy</title>
     <style>
       body { font-family: Arial, sans-serif; margin: 0; background: #f4f7fb; color: #0f172a; }
-      main { max-width: 860px; margin: 0 auto; padding: 32px 20px 48px; }
-      section { background: #fff; border: 1px solid #dbe5f0; border-radius: 18px; padding: 24px; margin-top: 18px; }
+      main { max-width: 780px; margin: 0 auto; padding: 24px 16px 36px; }
+      section { background: #fff; border: 1px solid #dbe5f0; border-radius: 18px; padding: 20px; margin-top: 14px; }
       h1, h2 { color: #163b7a; }
-      ul { padding-left: 22px; }
-      a { color: #1d4ed8; }
-      .muted { color: #475569; }
+      h1 { margin: 0 0 8px; font-size: 1.85rem; }
+      h2 { margin: 0 0 10px; font-size: 1.2rem; }
+      p, li { font-size: 0.96rem; line-height: 1.6; }
+      ul { padding-left: 22px; margin: 0; }
+      a { color: #1d4ed8; word-break: break-word; }
+      .muted { color: #475569; font-size: 0.92rem; }
+      @media (max-width: 640px) {
+        main { padding: 18px 12px 28px; }
+        section { padding: 16px; border-radius: 16px; margin-top: 12px; }
+        h1 { font-size: 1.55rem; }
+        h2 { font-size: 1.05rem; }
+        p, li { font-size: 0.92rem; line-height: 1.55; }
+      }
     </style>
   </head>
   <body>
@@ -77,6 +93,7 @@ const getPolicyHtml = () => {
       <section>
         <h2>Contact</h2>
         <p>If you have questions about this policy, contact ${contactName} at <a href="mailto:${supportEmail}">${supportEmail}</a>.</p>
+        <p>You can also reach us on WhatsApp at <a href="https://wa.me/${whatsappNumber.replace(/[^0-9]/g, "")}">${whatsappNumber}</a>.</p>
       </section>
     </main>
   </body>
