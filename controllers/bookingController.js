@@ -436,6 +436,12 @@ exports.getAllBookingsAdmin = async (req, res) => {
     if (shouldPaginate) {
       const safeLimit = Math.min(limit, 100);
       const offset = (page - 1) * safeLimit;
+      const countQuery = `SELECT COUNT(*) AS total
+                          FROM bookings b
+                          JOIN users u ON b.user_id = u.id
+                          JOIN courts c ON b.court_id = c.id
+                          WHERE 1=1${query.split('WHERE 1=1')[1].split(' ORDER BY')[0]}`;
+      const [countRows] = await pool.query(countQuery, params);
       const paginatedQuery = `${query} LIMIT ? OFFSET ?`;
       const [bookings] = await pool.query(paginatedQuery, [...params, safeLimit, offset]);
 
@@ -443,6 +449,8 @@ exports.getAllBookingsAdmin = async (req, res) => {
         items: bookings,
         page,
         limit: safeLimit,
+        total: Number(countRows[0]?.total || 0),
+        totalPages: Math.ceil(Number(countRows[0]?.total || 0) / safeLimit),
       });
     }
 
