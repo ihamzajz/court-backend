@@ -72,6 +72,7 @@ app.use("/api/courts", require("./routes/courtRoutes"));
 app.use("/api/events", require("./routes/eventRoutes"));
 app.use("/api/event-bookings", require("./routes/eventBookingRoutes"));
 app.use("/api/bookings", require("./routes/bookingRoutes"));
+app.use("/api/booking-categories", require("./routes/bookingCategoryRoutes"));
 app.use("/api/users", require("./routes/userRoutes"));
 app.use("/api/slides", require("./routes/slideRoutes"));
 app.use("/api/faqs", require("./routes/faqRoutes"));

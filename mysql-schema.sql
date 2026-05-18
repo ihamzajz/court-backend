@@ -137,3 +137,43 @@ CREATE TABLE IF NOT EXISTS account_deletion_requests (
 -- Create your first admin manually after deployment using:
 -- 1. the protected admin user API from an existing superadmin session, or
 -- 2. a one-time SQL insert with a freshly generated bcrypt password hash.
+
+CREATE TABLE IF NOT EXISTS booking_category (
+  id INT NOT NULL AUTO_INCREMENT,
+  type_of_booking VARCHAR(100) NOT NULL,
+  booking_for ENUM('court', 'event') NOT NULL,
+  min_players INT NOT NULL DEFAULT 0,
+  max_players INT NOT NULL DEFAULT 0,
+  min_time INT NOT NULL DEFAULT 0,
+  max_time INT NOT NULL DEFAULT 0,
+  min_age INT NOT NULL DEFAULT 0,
+  no_of_guest INT NOT NULL DEFAULT 0,
+  status ENUM('active', 'inactive') NOT NULL DEFAULT 'active',
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id)
+);
+
+ALTER TABLE bookings
+ADD COLUMN IF NOT EXISTS booking_category_id INT DEFAULT NULL,
+ADD KEY IF NOT EXISTS idx_bookings_booking_category_id (booking_category_id),
+ADD CONSTRAINT fk_bookings_booking_category
+  FOREIGN KEY (booking_category_id) REFERENCES booking_category(id) ON DELETE SET NULL;
+
+ALTER TABLE event_bookings
+ADD COLUMN IF NOT EXISTS booking_category_id INT DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS guest_count INT NOT NULL DEFAULT 0,
+ADD KEY IF NOT EXISTS idx_event_bookings_booking_category_id (booking_category_id),
+ADD CONSTRAINT fk_event_bookings_booking_category
+  FOREIGN KEY (booking_category_id) REFERENCES booking_category(id) ON DELETE SET NULL;
+
+ALTER TABLE users
+ADD COLUMN IF NOT EXISTS is_family_head ENUM('yes', 'no') NOT NULL DEFAULT 'no',
+ADD COLUMN IF NOT EXISTS head_id INT DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS head_fullname VARCHAR(100) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS relation_to_head VARCHAR(50) DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS dob DATE DEFAULT NULL,
+ADD COLUMN IF NOT EXISTS age INT DEFAULT NULL,
+ADD KEY IF NOT EXISTS idx_users_head_id (head_id),
+ADD CONSTRAINT fk_users_head
+  FOREIGN KEY (head_id) REFERENCES users(id) ON DELETE SET NULL;

@@ -14,6 +14,12 @@ const sanitizeUser = (user) => ({
   status: user.status,
   can_book: user.can_book,
   fees_status: user.fees_status,
+  is_family_head: user.is_family_head,
+  head_id: user.head_id,
+  head_fullname: user.head_fullname,
+  relation_to_head: user.relation_to_head,
+  dob: user.dob,
+  age: user.age,
 });
 
 const signAccessToken = (user) =>
@@ -50,7 +56,8 @@ const resolveActiveUserFromToken = async (token) => {
   const userId = decoded.id || decoded._id;
 
   const [rows] = await pool.query(
-    `SELECT id, name, username, email, cm_no, role, status, can_book, fees_status, token_version
+    `SELECT id, name, username, email, cm_no, role, status, can_book, fees_status,
+            is_family_head, head_id, head_fullname, relation_to_head, dob, age, token_version
      FROM users
      WHERE id = ?
      LIMIT 1`,

@@ -4,6 +4,80 @@ const { disconnectUserSockets, emitRealtime } = require("../socket");
 const { sanitizeUser, signAccessToken } = require("../utils/authSession");
 const { isDuplicateEntryError } = require("../utils/dbErrors");
 
+const parseNullableInt = (value) => {
+  if (value === undefined || value === null || value === "") {
+    return null;
+  }
+
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+const normalizeFamilyHeadFlag = (value, fallback = "no") => {
+  const normalized = String(value ?? fallback).trim().toLowerCase();
+  return normalized === "yes" ? "yes" : "no";
+};
+
+const buildUserFamilyPayload = async (connection, body, { currentUserId = null } = {}) => {
+  const isFamilyHead = normalizeFamilyHeadFlag(body.is_family_head, "no");
+  const age = parseNullableInt(body.age);
+  const headId = parseNullableInt(body.head_id);
+  const relationToHead = String(body.relation_to_head || "").trim() || null;
+  const dob = String(body.dob || "").trim() || null;
+
+  if (body.age !== undefined && age === null) {
+    return { error: "age must be a valid integer" };
+  }
+
+  if (age !== null && age < 0) {
+    return { error: "age must be a non-negative integer" };
+  }
+
+  if (dob) {
+    const parsedDob = new Date(`${dob}T00:00:00`);
+
+    if (Number.isNaN(parsedDob.getTime())) {
+      return { error: "dob must be a valid date in YYYY-MM-DD format" };
+    }
+  }
+
+  let normalizedHeadId = headId;
+  let headFullname = null;
+
+  if (normalizedHeadId !== null) {
+    if (currentUserId !== null && normalizedHeadId === Number(currentUserId)) {
+      return { error: "head_id cannot point to the same user" };
+    }
+
+    const [headRows] = await connection.query(
+      "SELECT id, name FROM users WHERE id = ? LIMIT 1",
+      [normalizedHeadId]
+    );
+
+    if (!headRows.length) {
+      return { error: "Selected family head not found" };
+    }
+
+    headFullname = headRows[0].name;
+  }
+
+  if (isFamilyHead === "yes") {
+    normalizedHeadId = null;
+    headFullname = null;
+  }
+
+  return {
+    value: {
+      isFamilyHead,
+      headId: normalizedHeadId,
+      headFullname,
+      relationToHead,
+      dob,
+      age,
+    },
+  };
+};
+
 exports.registerUser = async (req, res) => {
   const { name, username, email, cm_no, password } = req.body;
 
@@ -46,10 +120,19 @@ exports.registerUser = async (req, res) => {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
+    const familyPayload = await buildUserFamilyPayload(pool, req.body);
+
+    if (familyPayload.error) {
+      return res.status(400).json({ message: familyPayload.error });
+    }
+
+    const { isFamilyHead, headId, headFullname, relationToHead, dob, age } = familyPayload.value;
 
     await pool.query(
-      `INSERT INTO users (name, username, email, cm_no, password, role, status, can_book, fees_status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO users
+        (name, username, email, cm_no, password, role, status, can_book, fees_status,
+         is_family_head, head_id, head_fullname, relation_to_head, dob, age)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
         trimmedName,
         normalizedUsername,
@@ -60,6 +143,12 @@ exports.registerUser = async (req, res) => {
         "inactive",
         "no",
         "paid",
+        isFamilyHead,
+        headId,
+        headFullname,
+        relationToHead,
+        dob,
+        age,
       ]
     );
 
@@ -210,7 +299,8 @@ exports.deleteCurrentUser = async (req, res) => {
 exports.getCurrentUser = async (req, res) => {
   try {
     const [users] = await pool.query(
-      `SELECT id, name, username, email, cm_no, role, status, can_book, fees_status
+      `SELECT id, name, username, email, cm_no, role, status, can_book, fees_status,
+              is_family_head, head_id, head_fullname, relation_to_head, dob, age
        FROM users
        WHERE id = ?`,
       [req.user.id]
