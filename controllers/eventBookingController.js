@@ -9,6 +9,20 @@ const {
 const BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];
 const PAYMENT_STATUSES = ["UNPAID", "PAID"];
 
+const getBookingCategory = async (connection, bookingCategoryId, bookingFor) => {
+  const [rows] = await connection.query(
+    `SELECT *
+     FROM booking_category
+     WHERE id = ?
+       AND booking_for = ?
+       AND status = 'active'
+     LIMIT 1`,
+    [bookingCategoryId, bookingFor]
+  );
+
+  return rows[0] || null;
+};
+
 const parseTimeToMinutes = (value) => {
   const parts = String(value || "").split(":");
 
@@ -72,17 +86,26 @@ const hasConflict = async (connection, eventId, bookingDate, startTime, endTime)
 };
 
 exports.createEventBooking = async (req, res) => {
-  const { eventId, bookingDate, startTime, endTime } = req.body;
+  const { eventId, bookingDate, startTime, endTime, bookingCategoryId, guestCount = 0 } = req.body;
   const userId = req.user.id;
 
-  if (!eventId || !bookingDate || !startTime || !endTime) {
+  if (!eventId || !bookingDate || !startTime || !endTime || !bookingCategoryId) {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
   const startMinutes = parseTimeToMinutes(startTime);
   const endMinutes = parseTimeToMinutes(endTime);
+  const durationMinutes = startMinutes !== null && endMinutes !== null ? endMinutes - startMinutes : null;
+  const normalizedGuestCount = Number.parseInt(guestCount, 10);
 
-  if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+  if (
+    startMinutes === null ||
+    endMinutes === null ||
+    endMinutes <= startMinutes ||
+    durationMinutes === null ||
+    Number.isNaN(normalizedGuestCount) ||
+    normalizedGuestCount < 0
+  ) {
     return res.status(400).json({ message: "Invalid booking time range" });
   }
 
@@ -102,6 +125,30 @@ exports.createEventBooking = async (req, res) => {
     const booking = await withNamedLock(
       `booking:event:${eventId}:${bookingDate}`,
       async (connection) => {
+        const category = await getBookingCategory(connection, bookingCategoryId, "event");
+
+        if (!category) {
+          const error = new Error("Booking category not found");
+          error.statusCode = 404;
+          throw error;
+        }
+
+        if (durationMinutes < Number(category.min_time || 0) || durationMinutes > Number(category.max_time || 0)) {
+          const error = new Error(
+            `Booking duration must be between ${category.min_time} and ${category.max_time} minutes`
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
+        if (normalizedGuestCount > Number(category.no_of_guest || 0)) {
+          const error = new Error(
+            `Maximum ${category.no_of_guest} guests are allowed for this booking`
+          );
+          error.statusCode = 400;
+          throw error;
+        }
+
         await connection.beginTransaction();
 
         try {
@@ -139,9 +186,9 @@ exports.createEventBooking = async (req, res) => {
 
           const [result] = await connection.query(
             `INSERT INTO event_bookings
-              (user_id, event_id, booking_date, start_time, end_time)
-             VALUES (?, ?, ?, ?, ?)`,
-            [userId, eventId, bookingDate, startTime, endTime]
+              (user_id, event_id, booking_category_id, guest_count, booking_date, start_time, end_time)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [userId, eventId, bookingCategoryId, normalizedGuestCount, bookingDate, startTime, endTime]
           );
 
           const [rows] = await connection.query(

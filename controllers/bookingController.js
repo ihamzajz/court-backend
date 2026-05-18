@@ -1,5 +1,4 @@
 const pool = require("../config/db");
-const MAX_BOOKING_PLAYERS = 4;
 const { emitRealtime } = require("../socket");
 const { withNamedLock } = require("../utils/locking");
 const {
@@ -9,6 +8,48 @@ const {
 
 const BOOKING_STATUSES = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"];
 const PAYMENT_STATUSES = ["UNPAID", "PAID"];
+
+const resolveUserAge = (player, bookingDate) => {
+  const directAge = Number.parseInt(player?.age, 10);
+  if (!Number.isNaN(directAge) && directAge >= 0) {
+    return directAge;
+  }
+
+  const dob = String(player?.dob || "").trim();
+  if (!dob) {
+    return null;
+  }
+
+  const dobDate = new Date(`${dob}T00:00:00`);
+  const bookingRef = new Date(`${bookingDate}T00:00:00`);
+
+  if (Number.isNaN(dobDate.getTime()) || Number.isNaN(bookingRef.getTime())) {
+    return null;
+  }
+
+  let age = bookingRef.getFullYear() - dobDate.getFullYear();
+  const monthDiff = bookingRef.getMonth() - dobDate.getMonth();
+
+  if (monthDiff < 0 || (monthDiff === 0 && bookingRef.getDate() < dobDate.getDate())) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : null;
+};
+
+const getBookingCategory = async (connection, bookingCategoryId, bookingFor) => {
+  const [rows] = await connection.query(
+    `SELECT *
+     FROM booking_category
+     WHERE id = ?
+       AND booking_for = ?
+       AND status = 'active'
+     LIMIT 1`,
+    [bookingCategoryId, bookingFor]
+  );
+
+  return rows[0] || null;
+};
 
 const parseTimeToMinutes = (value) => {
   const parts = String(value || "").split(":");
@@ -73,17 +114,18 @@ const hasConflict = async (connection, courtId, bookingDate, startTime, endTime)
 };
 
 exports.createBooking = async (req, res) => {
-  const { courtId, bookingDate, startTime, endTime, playerIds = [] } = req.body;
+  const { courtId, bookingDate, startTime, endTime, playerIds = [], bookingCategoryId } = req.body;
   const userId = req.user.id;
 
-  if (!courtId || !bookingDate || !startTime || !endTime) {
+  if (!courtId || !bookingDate || !startTime || !endTime || !bookingCategoryId) {
     return res.status(400).json({ message: "Missing required fields" });
   }
 
   const startMinutes = parseTimeToMinutes(startTime);
   const endMinutes = parseTimeToMinutes(endTime);
+  const durationMinutes = startMinutes !== null && endMinutes !== null ? endMinutes - startMinutes : null;
 
-  if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes) {
+  if (startMinutes === null || endMinutes === null || endMinutes <= startMinutes || durationMinutes === null) {
     return res.status(400).json({ message: "Invalid booking time range" });
   }
 
@@ -103,12 +145,34 @@ exports.createBooking = async (req, res) => {
     const booking = await withNamedLock(
       `booking:court:${courtId}:${bookingDate}`,
       async (connection) => {
+        const category = await getBookingCategory(connection, bookingCategoryId, "court");
+
+        if (!category) {
+          const error = new Error("Booking category not found");
+          error.statusCode = 404;
+          throw error;
+        }
+
         const normalizedPlayerIds = Array.from(
           new Set([userId, ...playerIds.map((id) => Number(id)).filter(Boolean)])
         );
 
-        if (normalizedPlayerIds.length > MAX_BOOKING_PLAYERS) {
-          const error = new Error("Booking can have maximum 4 players including you");
+        if (normalizedPlayerIds.length < Number(category.min_players || 0)) {
+          const error = new Error(`Minimum ${category.min_players} players are required for this booking`);
+          error.statusCode = 400;
+          throw error;
+        }
+
+        if (normalizedPlayerIds.length > Number(category.max_players || 0)) {
+          const error = new Error(`Maximum ${category.max_players} players are allowed for this booking`);
+          error.statusCode = 400;
+          throw error;
+        }
+
+        if (durationMinutes < Number(category.min_time || 0) || durationMinutes > Number(category.max_time || 0)) {
+          const error = new Error(
+            `Booking duration must be between ${category.min_time} and ${category.max_time} minutes`
+          );
           error.statusCode = 400;
           throw error;
         }
@@ -128,7 +192,7 @@ exports.createBooking = async (req, res) => {
           }
 
           const [playerRows] = await connection.query(
-            `SELECT id, name, cm_no, fees_status
+            `SELECT id, name, cm_no, fees_status, age, dob
              FROM users
              WHERE status = 'active'
                AND id IN (?)`,
@@ -157,6 +221,21 @@ exports.createBooking = async (req, res) => {
             throw error;
           }
 
+          if (Number(category.min_age || 0) > 0) {
+            const invalidAgePlayer = players.find((player) => {
+              const age = resolveUserAge(player, bookingDate);
+              return age === null || age < Number(category.min_age);
+            });
+
+            if (invalidAgePlayer) {
+              const error = new Error(
+                `${invalidAgePlayer.name} does not meet the minimum age of ${category.min_age}`
+              );
+              error.statusCode = 400;
+              throw error;
+            }
+          }
+
           const conflict = await hasConflict(connection, courtId, bookingDate, startTime, endTime);
           if (conflict) {
             const error = new Error("Time slot not available");
@@ -180,9 +259,9 @@ exports.createBooking = async (req, res) => {
 
           const [result] = await connection.query(
             `INSERT INTO bookings
-              (user_id, court_id, booking_type, booking_date, start_time, end_time, players_json)
-             VALUES (?, ?, 'COURT', ?, ?, ?, ?)`,
-            [userId, courtId, bookingDate, startTime, endTime, JSON.stringify(players)]
+              (user_id, court_id, booking_type, booking_category_id, booking_date, start_time, end_time, players_json)
+             VALUES (?, ?, 'COURT', ?, ?, ?, ?, ?)`,
+            [userId, courtId, bookingCategoryId, bookingDate, startTime, endTime, JSON.stringify(players)]
           );
 
           const [rows] = await connection.query(
