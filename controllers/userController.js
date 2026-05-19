@@ -153,6 +153,41 @@ exports.getUsers = async (_req, res) => {
   }
 };
 
+exports.searchFamilyHeadOptions = async (req, res) => {
+  const search = String(req.query.q || "").trim();
+  const excludeId = parseNullableInt(req.query.exclude_id);
+
+  try {
+    const where = ["is_family_head = 'yes'"];
+    const params = [];
+
+    if (excludeId !== null) {
+      where.push("id != ?");
+      params.push(excludeId);
+    }
+
+    if (search) {
+      where.push("(name LIKE ? OR cm_no LIKE ?)");
+      const like = `${search}%`;
+      params.push(like, like);
+    }
+
+    const [users] = await pool.query(
+      `SELECT id, name, cm_no, is_family_head
+       FROM users
+       WHERE ${where.join(" AND ")}
+       ORDER BY name ASC
+       LIMIT 20`,
+      params
+    );
+
+    res.json(users);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Failed to search family heads" });
+  }
+};
+
 exports.createUser = async (req, res) => {
   const {
     name,

@@ -3,6 +3,7 @@ const express = require("express");
 const {
   getBookingPlayers,
   getUsers,
+  searchFamilyHeadOptions,
   createUser,
   updateUser,
   deleteUser,
@@ -12,6 +13,7 @@ const { protect, adminOnly } = require("../middleware/authMiddleware");
 const router = express.Router();
 
 router.get("/booking-options", protect, getBookingPlayers);
+router.get("/family-head-options", protect, adminOnly, searchFamilyHeadOptions);
 router.get("/", protect, adminOnly, getUsers);
 router.post("/", protect, adminOnly, createUser);
 router.put("/:id", protect, adminOnly, updateUser);
