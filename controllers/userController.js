@@ -142,11 +142,81 @@ exports.getBookingPlayers = async (req, res) => {
   }
 };
 
-exports.getUsers = async (_req, res) => {
+exports.getUsers = async (req, res) => {
   try {
-    const [users] = await pool.query(`${buildUserSelect()} ORDER BY u.created_at DESC`);
+    const page = Math.max(1, Number.parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, Number.parseInt(req.query.limit, 10) || 20));
+    const search = String(req.query.search || "").trim().toLowerCase();
+    const role = normalizeEnumValue(req.query.role, USER_ROLES, "");
+    const status = normalizeEnumValue(req.query.status, USER_STATUSES, "");
+    const canBook = normalizeEnumValue(req.query.can_book, USER_CAN_BOOK, "");
+    const feesStatus = normalizeEnumValue(req.query.fees_status, USER_FEES_STATUSES, "");
+    const hasFilters = Boolean(search || role || status || canBook || feesStatus || req.query.page || req.query.limit);
 
-    res.json(users);
+    if (!hasFilters) {
+      const [users] = await pool.query(`${buildUserSelect()} ORDER BY u.created_at DESC`);
+      return res.json(users);
+    }
+
+    const where = ["1 = 1"];
+    const params = [];
+
+    if (search) {
+      const like = `%${search}%`;
+      where.push("(LOWER(u.name) LIKE ? OR LOWER(u.username) LIKE ? OR LOWER(u.email) LIKE ? OR LOWER(u.cm_no) LIKE ? OR LOWER(u.role) LIKE ?)");
+      params.push(like, like, like, like, like);
+    }
+
+    if (role) {
+      where.push("u.role = ?");
+      params.push(role);
+    }
+
+    if (status) {
+      where.push("u.status = ?");
+      params.push(status);
+    }
+
+    if (canBook) {
+      where.push("u.can_book = ?");
+      params.push(canBook);
+    }
+
+    if (feesStatus) {
+      where.push("u.fees_status = ?");
+      params.push(feesStatus);
+    }
+
+    const [[countRow]] = await pool.query(
+      `SELECT COUNT(*) AS total
+       FROM users u
+       WHERE ${where.join(" AND ")}`,
+      params
+    );
+
+    const total = Number(countRow?.total || 0);
+    const totalPages = Math.max(1, Math.ceil(total / limit));
+    const currentPage = Math.min(page, totalPages);
+    const offset = (currentPage - 1) * limit;
+    const listParams = [...params, limit, offset];
+
+    const [users] = await pool.query(
+      `${buildUserSelect()}
+       WHERE ${where.join(" AND ")}
+       ORDER BY u.created_at DESC
+       LIMIT ? OFFSET ?`,
+      listParams
+    );
+
+    res.json({
+      items: users,
+      pagination: {
+        page: currentPage,
+        per_page: limit,
+        total,
+        total_pages: totalPages,
+      },
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ message: "Failed to fetch users" });
