@@ -158,7 +158,7 @@ exports.searchFamilyHeadOptions = async (req, res) => {
   const excludeId = parseNullableInt(req.query.exclude_id);
 
   try {
-    const where = ["is_family_head = 'yes'"];
+    const where = ["1 = 1"];
     const params = [];
 
     if (excludeId !== null) {
@@ -176,8 +176,10 @@ exports.searchFamilyHeadOptions = async (req, res) => {
       `SELECT id, name, cm_no, is_family_head
        FROM users
        WHERE ${where.join(" AND ")}
-       ORDER BY name ASC
-       LIMIT 20`,
+       ORDER BY
+         CASE WHEN is_family_head = 'yes' THEN 0 ELSE 1 END,
+         name ASC
+       LIMIT 50`,
       params
     );
 
