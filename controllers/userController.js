@@ -76,12 +76,16 @@ const validateAndResolveUserFamilyFields = async (connection, body, { currentUse
     }
 
     const [headRows] = await connection.query(
-      "SELECT id, name FROM users WHERE id = ? LIMIT 1",
+      "SELECT id, name, is_family_head FROM users WHERE id = ? LIMIT 1",
       [normalizedHeadId]
     );
 
     if (!headRows.length) {
       return { error: "Selected family head not found" };
+    }
+
+    if (String(headRows[0].is_family_head || "no") !== "yes") {
+      return { error: "Selected family head must have Is Family Head set to yes" };
     }
 
     headFullname = headRows[0].name;
