@@ -237,8 +237,8 @@ exports.searchFamilyHeadOptions = async (req, res) => {
     }
 
     if (search) {
-      where.push("(name LIKE ? OR cm_no LIKE ?)");
-      const like = `${search}%`;
+      where.push("(LOWER(name) LIKE ? OR LOWER(COALESCE(cm_no, '')) LIKE ?)");
+      const like = `%${search.toLowerCase()}%`;
       params.push(like, like);
     }
 
